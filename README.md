@@ -1,0 +1,2 @@
+# GlobalPointer_lstm_torch
+GlobalPointer_lstm进行NER
