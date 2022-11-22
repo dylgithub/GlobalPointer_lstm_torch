@@ -37,7 +37,7 @@ class MetricsCalculator(object):
         return f1, precision, recall
 
 class GlobalPointer(nn.Module):
-    def __init__(self, encoder, ent_type_size, inner_dim, RoPE=True):
+    def __init__(self, encoder, ent_type_size, inner_dim, encoder_hidden_size, RoPE=True):
         #encodr: RoBerta-Large as encoder
         #inner_dim: 64
         #ent_type_size: ent_cls_num  实体类别的个数，便于确定头的个数
@@ -45,8 +45,7 @@ class GlobalPointer(nn.Module):
         self.encoder = encoder
         self.ent_type_size = ent_type_size
         self.inner_dim = inner_dim
-        self.hidden_size = 128
-        self.dense = nn.Linear(self.hidden_size * 2, self.ent_type_size * self.inner_dim * 2)
+        self.dense = nn.Linear(encoder_hidden_size * 2, self.ent_type_size * self.inner_dim * 2)
 
         self.RoPE = RoPE
 

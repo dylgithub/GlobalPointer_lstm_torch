@@ -11,29 +11,18 @@ import torch
 from GlobalPointer import GlobalPointer, MetricsCalculator
 from tqdm import tqdm
 from bilstm import BiLSTM
+from config import Config
 
-train_cme_path = './datasets/train.json'  # CMeEE 训练集
-eval_cme_path = './datasets/eval.json'  # CMeEE 测试集
-device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
-BATCH_SIZE = 256
-
-ENT_CLS_NUM = 9
+# train_cme_path = './datasets/train.json'  # CMeEE 训练集
+# eval_cme_path = './datasets/eval.json'  # CMeEE 测试集
+# device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
+# BATCH_SIZE = 256
+#
+# ENT_CLS_NUM = 9
 
 # tokenizer
 
-# train_data and val_data
-train_data, token2id = load_data(train_cme_path)
-evl_data, _ = load_data(eval_cme_path)
-ner_train = EntDataset(train_data, token2id)
-ner_loader_train = DataLoader(ner_train, batch_size=BATCH_SIZE, collate_fn=ner_train.collate, shuffle=True)
-ner_evl = EntDataset(evl_data, token2id)
-ner_loader_evl = DataLoader(ner_evl, batch_size=BATCH_SIZE, collate_fn=ner_evl.collate, shuffle=False)
 
-# GP MODEL
-encoder = BiLSTM(len(token2id), 300, 128, 128)
-model = GlobalPointer(encoder, ENT_CLS_NUM, 64).to(device)  # 9个实体类型
-# optimizer = torch.optim.Adam(model.parameters(), lr=2e-5)
-optimizer = torch.optim.Adam(model.parameters(), lr=1e-3)
 
 
 def multilabel_categorical_crossentropy(y_pred, y_true):
@@ -59,45 +48,60 @@ def loss_fun(y_true, y_pred):
     loss = multilabel_categorical_crossentropy(y_true, y_pred)
     return loss
 
+if __name__ == '__main__':
+    config = Config()
+    # train_data and val_data
+    train_data, token2id = load_data(config.train_cme_path)
+    evl_data, _ = load_data(config.eval_cme_path)
+    ner_train = EntDataset(train_data, token2id)
+    ner_loader_train = DataLoader(ner_train, batch_size=config.BATCH_SIZE, collate_fn=ner_train.collate, shuffle=True)
+    ner_evl = EntDataset(evl_data, token2id)
+    ner_loader_evl = DataLoader(ner_evl, batch_size=config.BATCH_SIZE, collate_fn=ner_evl.collate, shuffle=False)
 
-metrics = MetricsCalculator()
-max_f, max_recall = 0.0, 0.0
-for eo in range(30):
-    total_loss, total_f1 = 0., 0.
-    for idx, batch in enumerate(ner_loader_train):
-        raw_text_list, input_ids, attention_mask, labels = batch
-        input_ids, attention_mask, labels = input_ids.to(device), attention_mask.to(device), labels.to(device)
-        logits = model(input_ids, attention_mask)
-        loss = loss_fun(logits, labels)
-        optimizer.zero_grad()
-        loss.backward()
-        # torch.nn.utils.clip_grad_norm_(model.parameters(), max_norm=0.25)
-        optimizer.step()
-        sample_f1 = metrics.get_sample_f1(logits, labels)
-        total_loss += loss.item()
-        total_f1 += sample_f1.item()
+    # GP MODEL
+    encoder = BiLSTM(len(token2id), config.emb_size, config.lstm_hidden_size, config.out_size)
+    model = GlobalPointer(encoder, config.ENT_CLS_NUM, config.head_size, config.lstm_hidden_size).to(config.device)  # 9个实体类型
+    # optimizer = torch.optim.Adam(model.parameters(), lr=2e-5)
+    optimizer = torch.optim.Adam(model.parameters(), lr=1e-3)
 
-        avg_loss = total_loss / (idx + 1)
-        avg_f1 = total_f1 / (idx + 1)
-        print("trian_loss:", avg_loss, "\t train_f1:", avg_f1)
-
-    with torch.no_grad():
-        total_f1_, total_precision_, total_recall_ = 0., 0., 0.
-        model.eval()
-        for batch in tqdm(ner_loader_evl, desc="Valing"):
+    metrics = MetricsCalculator()
+    max_f, max_recall = 0.0, 0.0
+    for eo in range(30):
+        total_loss, total_f1 = 0., 0.
+        for idx, batch in enumerate(ner_loader_train):
             raw_text_list, input_ids, attention_mask, labels = batch
-            input_ids, attention_mask, labels = input_ids.to(device), attention_mask.to(device), labels.to(device)
+            input_ids, attention_mask, labels = input_ids.to(config.device), attention_mask.to(config.device), labels.to(config.device)
             logits = model(input_ids, attention_mask)
-            f1, p, r = metrics.get_evaluate_fpr(logits, labels)
-            total_f1_ += f1
-            total_precision_ += p
-            total_recall_ += r
-        avg_f1 = total_f1_ / (len(ner_loader_evl))
-        avg_precision = total_precision_ / (len(ner_loader_evl))
-        avg_recall = total_recall_ / (len(ner_loader_evl))
-        print("EPOCH：{}\tEVAL_F1:{}\tPrecision:{}\tRecall:{}\t".format(eo, avg_f1, avg_precision, avg_recall))
+            loss = loss_fun(logits, labels)
+            optimizer.zero_grad()
+            loss.backward()
+            # torch.nn.utils.clip_grad_norm_(model.parameters(), max_norm=0.25)
+            optimizer.step()
+            sample_f1 = metrics.get_sample_f1(logits, labels)
+            total_loss += loss.item()
+            total_f1 += sample_f1.item()
 
-        if avg_f1 > max_f:
-            torch.save(model.state_dict(), './outputs/ent_model.pth'.format(eo))
-            max_f = avg_f1
-        model.train()
+            avg_loss = total_loss / (idx + 1)
+            avg_f1 = total_f1 / (idx + 1)
+            print("trian_loss:", avg_loss, "\t train_f1:", avg_f1)
+
+        with torch.no_grad():
+            total_f1_, total_precision_, total_recall_ = 0., 0., 0.
+            model.eval()
+            for batch in tqdm(ner_loader_evl, desc="Valing"):
+                raw_text_list, input_ids, attention_mask, labels = batch
+                input_ids, attention_mask, labels = input_ids.to(device), attention_mask.to(device), labels.to(device)
+                logits = model(input_ids, attention_mask)
+                f1, p, r = metrics.get_evaluate_fpr(logits, labels)
+                total_f1_ += f1
+                total_precision_ += p
+                total_recall_ += r
+            avg_f1 = total_f1_ / (len(ner_loader_evl))
+            avg_precision = total_precision_ / (len(ner_loader_evl))
+            avg_recall = total_recall_ / (len(ner_loader_evl))
+            print("EPOCH：{}\tEVAL_F1:{}\tPrecision:{}\tRecall:{}\t".format(eo, avg_f1, avg_precision, avg_recall))
+
+            if avg_f1 > max_f:
+                torch.save(model.state_dict(), './outputs/ent_model.pth'.format(eo))
+                max_f = avg_f1
+            model.train()
