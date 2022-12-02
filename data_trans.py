@@ -1,7 +1,9 @@
 # -*- coding: utf-8 -*-
 import json
 import pickle
-
+"""
+把BMESO五标签格式数据转换为globalpointer需用的数据格式
+"""
 
 def data_load(original_file_location):
     word_lists = []
