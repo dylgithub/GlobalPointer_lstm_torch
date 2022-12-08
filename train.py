@@ -51,7 +51,7 @@ def loss_fun(y_true, y_pred):
 if __name__ == '__main__':
     config = Config()
     # train_data and val_data
-    train_data, token2id = load_data(config.train_cme_path)
+    train_data, token2id = load_data(config.train_cme_path, data_type="train_data")
     evl_data, _ = load_data(config.eval_cme_path)
     ner_train = EntDataset(train_data, token2id)
     ner_loader_train = DataLoader(ner_train, batch_size=config.BATCH_SIZE, collate_fn=ner_train.collate, shuffle=True)
@@ -66,7 +66,7 @@ if __name__ == '__main__':
 
     metrics = MetricsCalculator()
     max_f, max_recall = 0.0, 0.0
-    for eo in range(30):
+    for eo in range(config.epoch):
         total_loss, total_f1 = 0., 0.
         for idx, batch in enumerate(ner_loader_train):
             raw_text_list, input_ids, attention_mask, labels = batch
@@ -90,7 +90,7 @@ if __name__ == '__main__':
             model.eval()
             for batch in tqdm(ner_loader_evl, desc="Valing"):
                 raw_text_list, input_ids, attention_mask, labels = batch
-                input_ids, attention_mask, labels = input_ids.to(device), attention_mask.to(device), labels.to(device)
+                input_ids, attention_mask, labels = input_ids.to(config.device), attention_mask.to(config.device), labels.to(config.device)
                 logits = model(input_ids, attention_mask)
                 f1, p, r = metrics.get_evaluate_fpr(logits, labels)
                 total_f1_ += f1
@@ -102,6 +102,6 @@ if __name__ == '__main__':
             print("EPOCH：{}\tEVAL_F1:{}\tPrecision:{}\tRecall:{}\t".format(eo, avg_f1, avg_precision, avg_recall))
 
             if avg_f1 > max_f:
-                torch.save(model.state_dict(), './outputs/ent_model.pth'.format(eo))
+                torch.save(model.state_dict(), config.best_model_save_path)
                 max_f = avg_f1
             model.train()

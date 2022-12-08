@@ -5,6 +5,7 @@
 @Description: 实体识别的数据载入器
 """
 import json
+import pickle
 import torch
 from torch.utils.data import Dataset, DataLoader
 import numpy as np
@@ -27,8 +28,12 @@ def load_data_bak(path):
                 D[-1].append((start, end, ent2id[label]))
     return D
 
+def save_as_pickle(obj, file_path):
+    with open(file_path, 'wb') as f:
+        pickle.dump(obj, f, pickle.HIGHEST_PROTOCOL)
 
-def load_data(path):
+
+def load_data(path, data_type=None):
     D = []
     token2id = {"pad": 0}
     _id = 1
@@ -45,6 +50,8 @@ def load_data(path):
                 if start <= end:
                     D[-1].append((start, end, ent2id[label]))
     token2id["unk"] = _id
+    if data_type == "train_data":
+        save_as_pickle(token2id, "mapping/token2id_mapping.pkl")
     # [['对儿童SARST细胞亚群的研究表明，与成人SARS相比，儿童细胞下降不明显，证明上述推测成立。', (3, 9, 0), (19, 24, 1)]]
     return D, token2id
 
