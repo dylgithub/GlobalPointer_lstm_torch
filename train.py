@@ -1,8 +1,5 @@
 # -*- coding: utf-8 -*-
 """
-@Time: 2021/8/27 16:12
-@Auth: Xhw
-@File: entity_extract.py
 @Description: 实体抽取.
 """
 from data_loader import EntDataset, load_data
@@ -100,7 +97,7 @@ if __name__ == '__main__':
             avg_precision = total_precision_ / (len(ner_loader_evl))
             avg_recall = total_recall_ / (len(ner_loader_evl))
             print("EPOCH：{}\tEVAL_F1:{}\tPrecision:{}\tRecall:{}\t".format(eo, avg_f1, avg_precision, avg_recall))
-
+            # 最好EVAL_F1:0.8995531687357605	Precision:0.9139890567804219	Recall:0.8860058040693457
             if avg_f1 > max_f:
                 torch.save(model.state_dict(), config.best_model_save_path)
                 max_f = avg_f1
