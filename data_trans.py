@@ -6,6 +6,9 @@ import pickle
 """
 
 def data_load(original_file_location):
+    """
+    通过\n进行句子分隔，获得文本和标签列表[[]]
+    """
     word_lists = []
     tag_lists = []
     tag_set = set()
@@ -32,6 +35,7 @@ def data_load(original_file_location):
 
 def data_trans(word_lists, tag_lists, tag_set, write_data_location):
     entity2id_mapping = {}
+    # 获得实体标签的种类
     for tag in tag_set:
         if tag[0] == "B":
             entity = tag.split("-")[1]
